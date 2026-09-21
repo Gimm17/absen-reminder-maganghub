@@ -37,6 +37,13 @@ export const SLOTS = [
 /** Jam slot dalam menit sejak 00.00, untuk hitung status timeline. */
 const SLOT_MINUTES = [16 * 60 + 30, 20 * 60 + 30, 23 * 60]
 
+/**
+ * WITA = UTC+8, offset TETAP. Jangan pakai getTimezoneOffset() device —
+ * itu membuat hasilnya bergantung timezone mesin, bukan WITA.
+ */
+const WITA_OFFSET_SECONDS = 8 * 3600
+const SECONDS_PER_DAY = 86400
+
 export const useUserStore = defineStore('user', {
     state: () => ({
         userId: null,
@@ -51,13 +58,44 @@ export const useUserStore = defineStore('user', {
         vapidPublicKey: '',
         permission: typeof Notification !== 'undefined' ? Notification.permission : 'default',
         loading: false,
-        /** Detik WITA saat komponen terakhir dimuat — dipakai countdown. */
-        nowMinutes: 0,
+        /** Detik epoch ASLI (UTC) — satu sumber waktu untuk seluruh app. */
+        nowSeconds: 0,
     }),
 
     getters: {
-        /** Waktu sekarang dalam menit (WITA), reaktif via nowMinutes. */
-        now: (s) => s.nowMinutes,
+        /**
+         * Detik sejak 00.00 WITA (0–86399).
+         * Epoch asli digeser +8 jam SEKALI di sini; getter lain memakai nilai ini,
+         * jadi offset tidak pernah terhitung dua kali.
+         */
+        secondsOfDay: (s) => ((s.nowSeconds + WITA_OFFSET_SECONDS) % SECONDS_PER_DAY + SECONDS_PER_DAY) % SECONDS_PER_DAY,
+
+        /**
+         * Waktu sekarang dalam MENIT sejak 00.00 WITA.
+         * Dibandingkan dengan jam slot di `timeline`.
+         */
+        now() {
+            return Math.floor(this.secondsOfDay / 60)
+        },
+
+        /** Detik berjalan sejak 00.00 WITA, untuk animasi halus. */
+        secondOfMinute() {
+            return this.secondsOfDay % 60
+        },
+
+        /** Jam:menit:detik WITA (HH:MM:SS) — dipakai header & hero. */
+        clockHms() {
+            const s = this.secondsOfDay
+            const p = (n) => String(n).padStart(2, '0')
+            return `${p(Math.floor(s / 3600))}:${p(Math.floor(s / 60) % 60)}:${p(s % 60)}`
+        },
+
+        /** Jam:menit WITA (HH:MM) — dipakai label ringkas. */
+        clockHm() {
+            const s = this.secondsOfDay
+            const p = (n) => String(n).padStart(2, '0')
+            return `${p(Math.floor(s / 3600))}:${p(Math.floor(s / 60) % 60)}`
+        },
 
         /** Status tiap slot: sent | next | upcoming. */
         timeline() {
@@ -80,21 +118,54 @@ export const useUserStore = defineStore('user', {
                     state = 'upcoming'
                 }
 
+                // ETA dihitung dari detik (bukan menit) supaya hitung mundur
+                // ikut berjalan tiap detik, tidak beku di satu angka.
                 let eta = null
+                let etaSeconds = null
                 if (state === 'next') {
-                    const diff = at - now
-                    eta = diff < 60
-                        ? `${diff} mnt`
-                        : `${Math.floor(diff / 60)} jam ${diff % 60 ? (diff % 60) + ' mnt' : ''}`.trim()
+                    etaSeconds = Math.max(0, at * 60 - this.secondsOfDay)
+                    const mins = Math.floor(etaSeconds / 60)
+                    const h = Math.floor(mins / 60)
+                    const m = mins % 60
+                    eta = h > 0 ? `${h} jam ${m} mnt` : (m > 0 ? `${m} mnt` : `${etaSeconds} dtk`)
                 }
 
-                return { ...slot, at, state, eta }
+                return { ...slot, at, state, eta, etaSeconds }
             })
         },
 
         /** Jumlah slot aktif, untuk badge header. */
         activeSlotCount() {
             return this.slots.length
+        },
+
+        /**
+         * Sisa waktu sampai tengah malam WITA, dalam menit.
+         * Dipakai untuk "sisa waktu hari ini" dan chip countdown.
+         */
+        remainingToMidnight() {
+            return Math.max(0, Math.floor((SECONDS_PER_DAY - this.secondsOfDay) / 60))
+        },
+
+        /**
+         * Sisa detik sampai slot berikutnya — untuk hitung mundur yang halus.
+         * null kalau tidak ada slot tersisa hari ini.
+         */
+        secondsToNextSlot() {
+            const next = this.timeline.find(t => t.state === 'next')
+            if (! next) return null
+            return Math.max(0, next.at * 60 - this.secondsOfDay)
+        },
+
+        /** Sisa waktu ke slot berikutnya, format "2 jam 15 mnt" / "47 mnt". */
+        nextSlotLabel() {
+            const s = this.secondsToNextSlot
+            if (s === null) return null
+            const mins = Math.floor(s / 60)
+            const h = Math.floor(mins / 60)
+            const m = mins % 60
+            if (h > 0) return `${h} jam ${m} mnt`
+            return `${m} mnt`
         },
     },
 
@@ -109,11 +180,12 @@ export const useUserStore = defineStore('user', {
             localStorage.removeItem('reminder_absen_user_id')
         },
 
-        /** Update jam sekarang (WITA) — dipanggil interval tiap 30 detik. */
+        /**
+         * Segerakkan jam WITA. Dipanggil tiap detik oleh satu interval global.
+         * Membulatkan ke detik supaya angka tidak berkedip di antara tick.
+         */
         tick() {
-            const nowUtc = new Date()
-            const wita = new Date(nowUtc.getTime() + (8 * 60 + nowUtc.getTimezoneOffset()) * 60000)
-            this.nowMinutes = wita.getHours() * 60 + wita.getMinutes()
+            this.nowSeconds = Math.floor(Date.now() / 1000)
         },
 
         async loadVapidKey() {

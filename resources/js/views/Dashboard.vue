@@ -21,7 +21,12 @@
         <div>
           <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Zona Waktu Aktif</div>
           <div class="tabular text-xl font-bold text-slate-900 leading-tight">
-            {{ clock }} <span class="text-[11px] text-slate-500 font-semibold">WITA (UTC+8)</span>
+            {{ store.clockHms }}
+            <span class="text-[11px] text-slate-500 font-semibold">WITA (UTC+8)</span>
+          </div>
+          <div v-if="nextSlotCountdown" class="tabular text-[11px] font-semibold text-brand-700 mt-0.5 flex items-center gap-1">
+            <span class="live-dot"></span>
+            Pengingat berikutnya dalam {{ nextSlotCountdown }}
           </div>
         </div>
       </div>
@@ -70,7 +75,7 @@
                     <span class="tabular font-semibold text-emerald-900">{{ checkinTimeLabel }}</span>
                   </template>
                   <template v-else>
-                    Batas absen <span class="tabular font-semibold">{{ deadlineLabel }}</span> — sisa waktu
+                    Batas absen <span class="tabular font-semibold">{{ deadlineLabel }}</span> — sisa
                     <span class="tabular font-semibold">{{ remainingLabel }}</span>
                   </template>
                 </p>
@@ -374,7 +379,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useUserStore } from '../stores/user'
 import { useToast } from '../composables/useToast'
 import Timeline from '../components/Timeline.vue'
@@ -399,8 +404,6 @@ const emailSaving = ref(false)
 const emailError = ref('')
 const emailSaved = ref(false)
 
-const clock = ref('--:--:--')
-
 const firstName = computed(() => (store.name || 'Peserta Magang').split(' ')[0])
 
 const checkinTimeLabel = computed(() => {
@@ -412,13 +415,24 @@ const checkinTimeLabel = computed(() => {
 
 const deadlineLabel = computed(() => '00.00 WITA')
 
-/** Sisa waktu sampai tengah malam (WITA). */
+/** Sisa waktu sampai tengah malam (WITA) — dihitung ulang tiap detik via store. */
 const remainingLabel = computed(() => {
-    const mins = 24 * 60 - store.now
+    const mins = store.remainingToMidnight
     if (mins <= 0) return 'kurang dari 1 mnt'
     const h = Math.floor(mins / 60)
     const m = mins % 60
     return h > 0 ? `${h} jam ${m} mnt` : `${m} mnt`
+})
+
+/**
+ * Countdown berjalan tiap detik (bukan tiap menit) supaya terlihat hidup.
+ * Format: "1:15:04" -> jam:menit:detik menuju slot pengingat berikutnya.
+ */
+const nextSlotCountdown = computed(() => {
+    const s = store.secondsToNextSlot
+    if (s === null) return null
+    const p = (n) => String(n).padStart(2, '0')
+    return `${Math.floor(s / 3600)}:${p(Math.floor(s / 60) % 60)}:${p(s % 60)}`
 })
 
 function dayClass(d) {
@@ -536,27 +550,13 @@ async function saveEmail() {
     }
 }
 
-function updateClock() {
-    const now = new Date()
-    const wita = new Date(now.getTime() + (8 * 60 + now.getTimezoneOffset()) * 60000)
-    clock.value = wita.toTimeString().slice(0, 8)
-}
-
 // Email di store diisi async (loadProfile) — jaga input tetap sinkron.
 watch(() => store.email, (v) => {
     if (! emailModalOpen.value) emailInput.value = v || ''
 })
 
-let timer = null
-
 onMounted(async () => {
-    updateClock()
     await store.refreshToday()
     emailInput.value = store.email || ''
-    timer = setInterval(updateClock, 30000)
-})
-
-onUnmounted(() => {
-    if (timer) clearInterval(timer)
 })
 </script>

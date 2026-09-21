@@ -93,7 +93,7 @@
         <!-- Right -->
         <div class="flex items-center gap-3 shrink-0">
           <span class="tabular text-sm font-semibold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg">
-            {{ clock }}
+            {{ store.clockHms }}
           </span>
           <a
             :href="dashboardUrl"
@@ -196,14 +196,6 @@ function isActive(item) {
     return route.path === item.to
 }
 
-const clock = ref('--:--:--')
-
-function updateClock() {
-    const now = new Date()
-    const wita = new Date(now.getTime() + (8 * 60 + now.getTimezoneOffset()) * 60000)
-    clock.value = wita.toTimeString().slice(0, 8)
-}
-
 function goProfile() {
     router.push(store.userId ? '/admin' : '/register')
 }
@@ -215,9 +207,31 @@ function onDocClick(e) {
     }
 }
 
+/**
+ * SATU interval global untuk seluruh app. Semua komponen baca jam dari store,
+ * jadi header dan hero tidak mungkin menampilkan detik yang berbeda.
+ * 1 detik supaya angka detik benar-benar mengalir, bukan melompat.
+ */
 let clockTimer = null
 
+/** Selaraskan ke pergantian detik berikutnya, lalu tick tiap 1000ms. */
+function startClock() {
+    store.tick()
+    const align = 1000 - (Date.now() % 1000)
+    setTimeout(() => {
+        store.tick()
+        clockTimer = setInterval(() => store.tick(), 1000)
+    }, align)
+}
+
 onMounted(async () => {
+    startClock()
+
+    // Segarkan tepat saat tengah malam lewat supaya tanggal/timeline ikut berubah.
+    midnightCheck = setInterval(() => {
+        if (store.secondsOfDay < 5) store.refreshToday()
+    }, 60000)
+
     try {
         await store.loadVapidKey()
     } catch (e) {
@@ -227,21 +241,25 @@ onMounted(async () => {
     const savedId = localStorage.getItem('reminder_absen_user_id')
     if (savedId) store.setUserId(parseInt(savedId, 10))
 
-    store.tick()
     await store.loadProfile()
     await store.refreshToday()
 
-    updateClock()
-    clockTimer = setInterval(() => {
-        updateClock()
-        store.tick()
-    }, 30000)
-
     document.addEventListener('click', onDocClick)
+
+    // Jam tetap akurat setelah tab lama tidak aktif (browser throttle timer).
+    document.addEventListener('visibilitychange', onVisible)
 })
+
+function onVisible() {
+    if (! document.hidden) store.tick()
+}
+
+let midnightCheck = null
 
 onUnmounted(() => {
     if (clockTimer) clearInterval(clockTimer)
+    if (midnightCheck) clearInterval(midnightCheck)
     document.removeEventListener('click', onDocClick)
+    document.removeEventListener('visibilitychange', onVisible)
 })
 </script>

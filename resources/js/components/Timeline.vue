@@ -39,7 +39,7 @@
           {{ slot.time }} WITA
         </span>
 
-        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5 flex items-center gap-0.5 border" :class="badgeClass(slot)">
+        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5 flex items-center gap-0.5 border tabular" :class="badgeClass(slot)">
           <span v-if="slot.state === 'sent'" class="material-symbols-outlined text-[12px]">done_all</span>
           {{ badgeText(slot) }}
         </span>
@@ -96,5 +96,4 @@ function badgeText(slot) {
     if (slot.state === 'next') return slot.eta ? `Dalam ${slot.eta}` : 'Berikutnya'
     if (slot.state === 'off') return 'Nonaktif'
     return 'Siaga'
-}
-</script>
+}</script>
