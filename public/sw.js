@@ -2,7 +2,7 @@
  * Handle push event + notificationclick + simple caching.
  */
 
-const CACHE_NAME = 'reminder-absen-v1'
+const CACHE_NAME = 'reminder-absen-v2'
 const ASSETS = ['/', '/dashboard', '/manifest.webmanifest']
 
 self.addEventListener('install', (event) => {
@@ -85,28 +85,28 @@ self.addEventListener('notificationclick', (event) => {
     )
 })
 
-// === Minimal fetch caching — app shell offline-friendly ===
+// === Minimal fetch caching ===
+// Network-first untuk SEMUA request same-origin, fallback ke cache saat offline.
+// Sengaja network-first (bukan cache-first) supaya deploy asset baru gak ketahan cache basi.
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url)
     if (url.origin !== self.location.origin) return
     if (event.request.method !== 'GET') return
+    // Jangan cache endpoint API — selalu live.
+    if (url.pathname.startsWith('/api/')) return
 
-    // Network-first untuk HTML.
-    if (event.request.mode === 'navigate') {
-        event.respondWith(
-            fetch(event.request).catch(() => caches.match('/'))
-        )
-        return
-    }
-
-    // Cache-first untuk asset lain.
     event.respondWith(
-        caches.match(event.request).then((cached) =>
-            cached || fetch(event.request).then((resp) => {
+        fetch(event.request).then((resp) => {
+            // Simpan copy ke cache untuk fallback offline.
+            if (resp.ok) {
                 const copy = resp.clone()
                 caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => {})
-                return resp
-            }).catch(() => cached)
+            }
+            return resp
+        }).catch(() =>
+            caches.match(event.request).then((cached) =>
+                cached || (event.request.mode === 'navigate' ? caches.match('/') : undefined)
+            )
         )
     )
 })

@@ -71,7 +71,8 @@ const loading = ref(false)
 const error = ref('')
 const form = reactive({ name: '', email: '' })
 
-const { subscribe } = usePushSubscription(store.vapidPublicKey)
+// Getter — baca store.vapidPublicKey saat subscribe() dipanggil, bukan saat setup.
+const { subscribe } = usePushSubscription(() => store.vapidPublicKey)
 
 async function register() {
     error.value = ''
@@ -79,6 +80,7 @@ async function register() {
     try {
         if (! store.vapidPublicKey) await store.loadVapidKey()
         const subscription = await subscribe()
+        if (! subscription) throw new Error('Gagal subscribe notifikasi.')
         const r = await fetch('/api/subscribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

@@ -2,10 +2,30 @@ import { ref } from 'vue'
 
 /**
  * Subscribe browser untuk Web Push dgn VAPID public key.
+ *
+ * Param bisa berupa:
+ *   - string key langsung, atau
+ *   - getter function () => key  ← pakai ini kalau key datang async (store/reactive),
+ *     supaya nilainya dibaca saat subscribe() dipanggil, bukan saat composable dibuat.
+ *
  * Returns { subscribe(), unsubscribe(), permission }.
  */
-export function usePushSubscription(vapidPublicKey) {
+export function usePushSubscription(vapidPublicKeyOrGetter) {
     const permission = ref(typeof Notification !== 'undefined' ? Notification.permission : 'default')
+
+    const getKey = typeof vapidPublicKeyOrGetter === 'function'
+        ? vapidPublicKeyOrGetter
+        : () => vapidPublicKeyOrGetter
+
+    /** Coba beberapa kali — key bisa belum termuat saat user klik cepat. */
+    async function waitForKey(attempts = 10, delayMs = 200) {
+        for (let i = 0; i < attempts; i++) {
+            const k = getKey()
+            if (k) return k
+            await new Promise(r => setTimeout(r, delayMs))
+        }
+        return ''
+    }
 
     function urlBase64ToUint8Array(base64String) {
         const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -17,7 +37,9 @@ export function usePushSubscription(vapidPublicKey) {
     async function subscribe() {
         if (! ('serviceWorker' in navigator)) throw new Error('Service Worker tidak didukung.')
         if (! ('PushManager' in window)) throw new Error('Push API tidak didukung di browser ini.')
-        if (! vapidPublicKey) throw new Error('VAPID public key belum dimuat.')
+
+        const vapidPublicKey = await waitForKey()
+        if (! vapidPublicKey) throw new Error('VAPID public key belum dimuat. Coba refresh halaman.')
 
         const perm = await Notification.requestPermission()
         permission.value = perm
