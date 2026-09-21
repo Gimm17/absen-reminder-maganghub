@@ -11,7 +11,7 @@ Route::get('/', fn () => view('app'))->name('home');
 Route::get('/register', fn () => view('app'))->name('register');
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 Route::get('/admin', [AdminController::class, 'index'])
-    ->middleware(['auth', 'admin'])
+    ->middleware('admin')
     ->name('admin');
 
 // API
@@ -22,7 +22,7 @@ Route::prefix('api')->group(function () {
     Route::get('/checkin/today', [CheckinController::class, 'today'])->name('api.checkin.today');
 
     // Admin (gate di controller kalau perlu; SPA shell handle)
-    Route::middleware(['auth', \App\Http\Middleware\EnsureAdmin::class])->prefix('admin')->group(function () {
+    Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/summary', [AdminController::class, 'summary'])->name('api.admin.summary');
         Route::get('/export.csv', [AdminController::class, 'exportCsv'])->name('api.admin.export');
     });

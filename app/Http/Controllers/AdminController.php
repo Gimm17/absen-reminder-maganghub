@@ -86,7 +86,8 @@ class AdminController extends Controller
                     fputcsv($out, [$u->name, $u->email, '']);
                 } else {
                     foreach ($rows as $r) {
-                        fputcsv($out, [$u->name, $u->email, $r->date->toDateString()]);
+                        $date = is_string($r->date) ? $r->date : $r->date->toDateString();
+                        fputcsv($out, [$u->name, $u->email, $date]);
                     }
                 }
             }

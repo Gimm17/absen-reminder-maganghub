@@ -18,6 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/subscribe',
             'api/checkin',
         ]);
+
+        // Register route middleware aliases.
+        $middleware->alias([
+            'admin' => \App\Http\Middleware\EnsureAdmin::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
