@@ -78,37 +78,37 @@ class PushNotificationService
 
         foreach ($endpoints as $endpoint) {
             try {
-                $this->client()->sendOneNotification(
+                // sendOneNotification() SUDAH mengirim dan mengembalikan report-nya
+                // (internal: queueNotification() + flush()->current()).
+                // Jangan panggil flush() lagi — queue sudah kosong, hasilnya 0 semua.
+                $report = $this->client()->sendOneNotification(
                     $endpoint->toSubscription(),
                     $jsonPayload,
                     ['TTL' => 3600, 'urgency' => 'normal', 'topic' => 'reminder-absen']
                 );
-            } catch (\Throwable $e) {
-                Log::warning('push enqueue error', [
-                    'user_id' => $user->id,
-                    'error' => $e->getMessage(),
-                ]);
-                $failed++;
-            }
-        }
 
-        // Iterasi flush SEKALI — flush() cuma boleh dipanggil sekali per send.
-        foreach ($this->client()->flush() as $report) {
-            if ($report->isSubscriptionExpired()) {
-                // 404/410 — endpoint mati, hapus.
-                $endpoint = $report->getRequest()->getUri()->__toString();
-                PushEndpoint::where('endpoint', $endpoint)->delete();
-                $expired++;
-            } elseif ($report->isSuccess()) {
-                $success++;
-                // Update last_used_at untuk endpoint yg berhasil.
-                $this->touchEndpoint($report->getEndpoint());
-            } else {
+                if ($report->isSubscriptionExpired()) {
+                    // 404/410 — endpoint mati, hapus supaya tidak dicoba lagi.
+                    $dead = $report->getRequest()->getUri()->__toString();
+                    PushEndpoint::where('endpoint', $dead)->delete();
+                    $expired++;
+                    Log::info('push endpoint expired, dihapus', ['user_id' => $user->id]);
+                } elseif ($report->isSuccess()) {
+                    $success++;
+                    $this->touchEndpoint($report->getEndpoint());
+                } else {
+                    $failed++;
+                    Log::warning('push delivery failed', [
+                        'user_id'         => $user->id,
+                        'reason'          => $report->getReason(),
+                        'response_status' => $report->getResponse()?->getStatusCode(),
+                    ]);
+                }
+            } catch (\Throwable $e) {
                 $failed++;
-                Log::warning('push delivery failed', [
+                Log::warning('push error', [
                     'user_id' => $user->id,
-                    'reason' => $report->getReason(),
-                    'response_status' => $report->getResponse()?->getStatusCode(),
+                    'error'   => $e->getMessage(),
                 ]);
             }
         }

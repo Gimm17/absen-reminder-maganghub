@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -57,8 +58,12 @@ class User extends Authenticatable
 
     public function hasCheckedInToday(): bool
     {
+        // Kolom `date` menyimpan string Y-m-d (bukan datetime). Wajib toDateString(),
+        // kalau tidak Carbon di-bind jadi '2026-09-21 00:00:00' dan tidak pernah match.
+        $today = Carbon::now($this->timezone ?: config('app.reminder_timezone'))->toDateString();
+
         return $this->checkins()
-            ->where('date', today($this->timezone ?: config('app.reminder_timezone')))
+            ->where('date', $today)
             ->exists();
     }
 
