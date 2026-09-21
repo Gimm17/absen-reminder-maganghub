@@ -22,6 +22,13 @@ import { useUserStore } from './stores/user'
 const store = useUserStore()
 
 onMounted(async () => {
+  // Load VAPID public key ASAP — dibutuhkan oleh usePushSubscription composable.
+  try {
+    await store.loadVapidKey()
+  } catch (e) {
+    console.error('Failed to load VAPID key:', e)
+  }
+
   // Restore user_id dari localStorage kalau ada.
   const savedId = localStorage.getItem('reminder_absen_user_id')
   if (savedId) store.setUserId(parseInt(savedId, 10))
