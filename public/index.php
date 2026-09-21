@@ -4,14 +4,19 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
-// Determine if the application is in maintenance mode...
-if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
+// Resolve app root. Default: 1 level up (standard Laravel deploy).
+// Override via LARAVEL_APP_ROOT env if public/ is copied ke subfolder lain (mis. cPanel public_html/<sub>/).
+$appRoot = getenv('LARAVEL_APP_ROOT') ?: dirname(__DIR__);
+if (! is_dir($appRoot . '/vendor')) {
+    // cPanel subfolder layout — fallback. Sesuaikan dgn path app kamu atau pakai LARAVEL_APP_ROOT.
+    $appRoot = '/home/' . get_current_user() . '/absen-reminder-maganghub';
+}
+
+if (file_exists($maintenance = $appRoot . '/storage/framework/maintenance.php')) {
     require $maintenance;
 }
 
-// Register the Composer autoloader...
-require __DIR__.'/../vendor/autoload.php';
+require $appRoot . '/vendor/autoload.php';
 
-// Bootstrap Laravel and handle the request...
-(require_once __DIR__.'/../bootstrap/app.php')
+(require_once $appRoot . '/bootstrap/app.php')
     ->handleRequest(Request::capture());
