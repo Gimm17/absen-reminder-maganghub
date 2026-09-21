@@ -65,6 +65,11 @@ class PushNotificationService
     public function sendToUser(User $user, array $payload): array
     {
         $this->ensureVapidConfigured();
+
+        // Token per-perangkat disuntikkan di sini (payload dibuat sekali untuk
+        // semua user, sedangkan token berbeda tiap user).
+        $payload['data']['token'] = $user->device_token;
+
         $endpoints = $user->pushEndpoints()->get();
 
         if ($endpoints->isEmpty()) {
@@ -118,45 +123,65 @@ class PushNotificationService
 
     /**
      * Bangun payload notification sesuai waktu slot.
+     *
+     * Catatan platform: Notification API TIDAK punya opsi `sound`.
+     * Suara notifikasi selalu suara sistem (batas browser/OS, bukan
+     * bisa diganti dari kode). Yang bisa diatur: `vibrate` (pola getar),
+     * `silent`, `icon`, `badge`, `image`, dan `timestamp`.
      */
     public static function buildReminderPayload(string $slot): array
     {
         $dashboardUrl = config('app.maganghub_dashboard_url');
         $loginUrl = config('app.maganghub_login_url');
-        $deadline = 'tengah malam (00.00 WITA)';
 
         $messages = [
             'slot-1' => [
-                'title' => '⏰ Absen MagangHub — 16:30',
-                'body' => "Sore! Jangan lupa absen hari ini. Batas jam {$deadline}.",
+                'title' => 'Absen MagangHub — 16.30 WITA',
+                'body'  => 'Sore! Belum absen hari ini. Masih ada 7 jam 30 menit sebelum penutupan.',
+                'tag'   => 'absen-slot-1',
+                // Getar lembut — pengingat pertama, belum mendesak.
+                'vibrate' => [180, 120, 180],
             ],
             'slot-2' => [
-                'title' => '⏰ Absen MagangHub — 20:30',
-                'body' => "Malam! Kamu belum absen hari ini. Batas jam {$deadline}.",
+                'title' => 'Absen MagangHub — 20.30 WITA',
+                'body'  => 'Malam! Absen hari ini belum tercatat. Sisa 3 jam 30 menit lagi.',
+                'tag'   => 'absen-slot-2',
+                // Getar sedang — mulai mendesak.
+                'vibrate' => [300, 150, 300, 150, 300],
             ],
             'slot-3' => [
-                'title' => '⏰ Absen MagangHub — 23:00',
-                'body' => "Peringatan terakhir! Absen tutup jam {$deadline}.",
+                'title' => 'Peringatan Terakhir — 23.00 WITA',
+                'body'  => 'Absen tutup 1 jam lagi! Segera isi sebelum tengah malam.',
+                'tag'   => 'absen-slot-3',
+                // Getar kuat & panjang — peringatan terakhir.
+                'vibrate' => [500, 200, 500, 200, 500, 200, 700],
             ],
         ];
 
         $msg = $messages[$slot] ?? $messages['slot-1'];
+        $isLast = $slot === 'slot-3';
 
         return [
-            'title' => $msg['title'],
-            'body'  => $msg['body'],
-            'icon'  => '/icons/icon-192.png',
-            'badge' => '/icons/icon-72.png',
-            'tag'   => "reminder-{$slot}",
+            'title'   => $msg['title'],
+            'body'    => $msg['body'],
+            'icon'    => '/icons/icon-192.png',
+            'badge'   => '/icons/icon-96.png',
+            'image'   => null,
+            'tag'     => $msg['tag'],
+            // renotify=true + tag sama -> notif lama diganti, tetap bunyi lagi.
             'renotify' => true,
-            'requireInteraction' => true,
+            'requireInteraction' => $isLast,
+            'silent'  => false,
+            'vibrate' => $msg['vibrate'],
+            'timestamp' => (int) (microtime(true) * 1000),
             'data' => [
-                'url' => $dashboardUrl,
+                'url'       => $dashboardUrl,
                 'login_url' => $loginUrl,
-                'slot' => $slot,
+                'slot'      => $slot,
+                'is_last'   => $isLast,
                 'actions' => [
-                    ['action' => 'open-dashboard', 'title' => 'Buka Dashboard Absen'],
                     ['action' => 'checkin', 'title' => '✅ Sudah Absen'],
+                    ['action' => 'open-dashboard', 'title' => 'Buka Portal'],
                 ],
             ],
         ];

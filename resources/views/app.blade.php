@@ -16,7 +16,33 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
 
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png">
+    {{-- iOS butuh ini supaya terbuka sebagai app, bukan tab Safari --}}
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="AbsenHub">
+    <meta name="mobile-web-app-capable" content="yes">
+
     <title>Reminder Absen MagangHub</title>
+
+    {{--
+      Tangkap `beforeinstallprompt` SEDINI MUNGKIN.
+      Event ini bisa terpicu sebelum Vue mount; kalau tidak ditangkap di sini,
+      event-nya hilang dan popup install tidak akan pernah bisa muncul.
+      Vue membacanya dari window.__pwaInstallEvent saat mount.
+    --}}
+    <script>
+        window.__pwaInstallEvent = null;
+        window.addEventListener('beforeinstallprompt', function (e) {
+            e.preventDefault();
+            window.__pwaInstallEvent = e;
+        });
+        window.addEventListener('appinstalled', function () {
+            window.__pwaInstallEvent = null;
+        });
+    </script>
+
     @vite(['resources/js/app.js'])
 </head>
 <body>

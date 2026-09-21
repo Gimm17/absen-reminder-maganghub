@@ -18,10 +18,11 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
-/public/icons/icon-*.png
+# Icon PNG di-generate, bukan di-commit. Jalankan: python generate_icons.py
+# (generate_icons.py sendiri DI-TRACK supaya clone baru bisa membuat icon-nya.)
+/public/icons/*.png
 /deploy/
 /ssh_helper.py
-/generate_icons.py
 *.sqlite
 *.sqlite-journal
 /database/database.sqlite

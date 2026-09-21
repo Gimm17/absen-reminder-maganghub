@@ -28,7 +28,19 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'device_token',
     ];
+
+    protected static function booted(): void
+    {
+        // Setiap user dapat device_token — dipakai Service Worker untuk
+        // kirim checkin lewat tombol notifikasi (SW tidak bisa baca localStorage).
+        static::creating(function (self $user) {
+            if (empty($user->device_token)) {
+                $user->device_token = \Illuminate\Support\Str::random(48);
+            }
+        });
+    }
 
     protected function casts(): array
     {

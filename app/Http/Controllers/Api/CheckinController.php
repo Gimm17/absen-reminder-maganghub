@@ -14,18 +14,28 @@ class CheckinController extends Controller
 {
     /**
      * POST /api/checkin — catat self-report absen harian.
-     * Body: { user_id: int, source?: 'button'|'manual' }
+     * Body: { user_id: int, source?: 'button'|'manual'|'notification' }
      *
      * Idempotent per (user_id, date).
      */
     public function store(Request $request): JsonResponse
     {
+        // user_id ATAU device_token. Service Worker pakai device_token karena
+        // tidak punya akses localStorage; halaman web pakai user_id.
         $data = Validator::make($request->all(), [
-            'user_id' => ['required', 'integer', 'exists:users,id'],
-            'source'  => ['nullable', 'in:button,manual'],
+            'user_id'      => ['required_without:device_token', 'nullable', 'integer', 'exists:users,id'],
+            'device_token' => ['required_without:user_id', 'nullable', 'string', 'max:64'],
+            'source'       => ['nullable', 'in:button,manual,notification'],
         ])->validate();
 
-        $user = User::findOrFail($data['user_id']);
+        $user = ! empty($data['user_id'])
+            ? User::findOrFail($data['user_id'])
+            : User::where('device_token', $data['device_token'])->first();
+
+        if (! $user) {
+            return response()->json(['error' => 'Token perangkat tidak dikenali.'], 404);
+        }
+
         $tz = $user->timezone ?: config('app.reminder_timezone');
         $today = Carbon::now($tz)->toDateString();
 
@@ -38,8 +48,6 @@ class CheckinController extends Controller
         );
         // Refresh from DB supaya wasRecentlyCreated akurat setelah edge-case composite key update.
         $checkin->refresh();
-        $wasRecentlyCreated = $checkin->wasRecentlyCreated;
-
         $wasRecentlyCreated = $checkin->wasRecentlyCreated;
 
         return response()->json([
@@ -62,10 +70,18 @@ class CheckinController extends Controller
     public function destroy(Request $request): JsonResponse
     {
         $data = Validator::make($request->all(), [
-            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'user_id'      => ['required_without:device_token', 'nullable', 'integer', 'exists:users,id'],
+            'device_token' => ['required_without:user_id', 'nullable', 'string', 'max:64'],
         ])->validate();
 
-        $user = User::findOrFail($data['user_id']);
+        $user = ! empty($data['user_id'])
+            ? User::findOrFail($data['user_id'])
+            : User::where('device_token', $data['device_token'])->first();
+
+        if (! $user) {
+            return response()->json(['error' => 'Token perangkat tidak dikenali.'], 404);
+        }
+
         $tz = $user->timezone ?: config('app.reminder_timezone');
         $today = Carbon::now($tz)->toDateString();
 

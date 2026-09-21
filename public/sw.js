@@ -1,9 +1,15 @@
-/* Service Worker untuk Reminder Absen MagangHub PWA
- * Handle push event + notificationclick + simple caching.
+/* Service Worker — Reminder Absen MagangHub PWA
+ *
+ * PENTING soal suara: Notification API tidak menyediakan opsi `sound`.
+ * Suara selalu suara notifikasi sistem. Yang bisa diatur hanya `vibrate`
+ * (pola getar) dan `silent`. Jangan tambahkan `sound:` — diabaikan diam-diam.
  */
 
-const CACHE_NAME = 'reminder-absen-v2'
+const CACHE_NAME = 'reminder-absen-v3'
 const ASSETS = ['/', '/dashboard', '/manifest.webmanifest']
+
+const DEFAULT_BADGE = '/icons/icon-96.png'
+const DEFAULT_ICON = '/icons/icon-192.png'
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
@@ -27,23 +33,34 @@ self.addEventListener('push', (event) => {
     try {
         data = event.data ? event.data.json() : {}
     } catch (e) {
-        data = { title: 'Reminder', body: event.data?.text() || '' }
+        data = { title: 'Reminder Absen', body: event.data ? event.data.text() : '' }
     }
 
-    const title = data.title || '⏰ Reminder Absen'
+    const title = data.title || 'Reminder Absen MagangHub'
+
     const options = {
         body: data.body || '',
-        icon: data.icon || '/icons/icon-192.png',
-        badge: data.badge || '/icons/icon-72.png',
-        tag: data.tag || 'reminder',
-        renotify: !!data.renotify,
+        icon: data.icon || DEFAULT_ICON,
+        badge: data.badge || DEFAULT_BADGE,
+        tag: data.tag || 'reminder-absen',
+        renotify: data.renotify !== false,
         requireInteraction: !!data.requireInteraction,
+        silent: data.silent === true,
+        timestamp: data.timestamp || Date.now(),
         data: data.data || {},
-        actions: (data.data?.actions) || [
-            { action: 'open-dashboard', title: 'Buka Dashboard' },
+        actions: (data.data && data.data.actions) || [
             { action: 'checkin', title: '✅ Sudah Absen' },
+            { action: 'open-dashboard', title: 'Buka Portal' },
         ],
     }
+
+    // vibrate tidak boleh ada bersamaan dengan silent: true (TypeError).
+    if (! options.silent && Array.isArray(data.vibrate) && data.vibrate.length) {
+        options.vibrate = data.vibrate
+    }
+
+    // image opsional — hanya kalau diisi.
+    if (data.image) options.image = data.image
 
     event.waitUntil(self.registration.showNotification(title, options))
 })
@@ -54,36 +71,62 @@ self.addEventListener('notificationclick', (event) => {
 
     const action = event.action
     const data = event.notification.data || {}
-    const dashboardUrl = data.url || 'https://monev.maganghub.kemnaker.go.id/dashboard/riwayat'
+    const dashboardUrl = data.url
+        || 'https://monev.maganghub.kemnaker.go.id/dashboard/riwayat'
     const appUrl = new URL('/dashboard', self.location.origin).toString()
 
+    // "Sudah Absen" -> catat, lalu buka app supaya user lihat status terbaru.
     if (action === 'checkin') {
-        // Kirim POST checkin ke server lewat fetch — best-effort, no blocking.
-        event.waitUntil(
-            fetch('/api/checkin', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ source: 'button' }),
-            }).catch(() => {})
-        )
+        event.waitUntil(markCheckedInAndOpen(appUrl, data.token))
+        return
     }
 
-    // Buka dashboard (external) untuk action open-dashboard, atau app PWA untuk no-action.
-    const targetUrl = action === 'open-dashboard' ? dashboardUrl : appUrl
-    const windowType = action === 'open-dashboard' ? '_blank' : '_self'
+    // "Buka Portal" -> tab baru ke dashboard resmi.
+    if (action === 'open-dashboard') {
+        event.waitUntil(openOrFocus(dashboardUrl, true))
+        return
+    }
 
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
-            // Kalau sudah ada tab dashboard eksternal terbuka, focus.
-            for (const c of wins) {
-                if (c.url.startsWith('https://monev.maganghub.kemnaker.go.id') && action === 'open-dashboard') {
-                    return c.focus()
-                }
-            }
-            return clients.openWindow(targetUrl)
-        })
-    )
+    // Tap body notifikasi -> buka app PWA.
+    event.waitUntil(openOrFocus(appUrl, false))
 })
+
+/**
+ * Catat absen lewat API, lalu fokus/buka app.
+ * SW tidak punya akses localStorage, jadi identitas dikirim lewat
+ * device_token yg disertakan server di dalam payload push.
+ */
+async function markCheckedInAndOpen(appUrl, token) {
+    if (! token) {
+        // Tidak ada token (mis. push lama) — tetap buka app, user catat manual.
+        return openOrFocus(appUrl, false)
+    }
+
+    try {
+        await fetch('/api/checkin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_token: token, source: 'notification' }),
+        })
+    } catch (e) {
+        // Best-effort — user tetap dibawa ke app untuk konfirmasi manual.
+    }
+    return openOrFocus(appUrl, false)
+}
+
+/** Fokus tab yg cocok kalau ada, kalau tidak buka baru. */
+async function openOrFocus(url, preferNewTab) {
+    const wins = await clients.matchAll({ type: 'window', includeUncontrolled: true })
+
+    const origin = new URL(url).origin
+    for (const c of wins) {
+        if (c.url.startsWith(origin) && 'focus' in c) {
+            return c.focus()
+        }
+    }
+
+    return clients.openWindow(url)
+}
 
 // === Minimal fetch caching ===
 // Network-first untuk SEMUA request same-origin, fallback ke cache saat offline.

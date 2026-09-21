@@ -159,6 +159,9 @@
 
     <!-- Toast global — umpan balik semua aksi -->
     <Toaster />
+
+    <!-- Ajakan pasang PWA (otomatis di mobile) -->
+    <InstallPrompt />
   </div>
 </template>
 
@@ -167,6 +170,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useUserStore } from './stores/user'
 import Toaster from './components/Toaster.vue'
+import InstallPrompt from './components/InstallPrompt.vue'
 
 const store = useUserStore()
 const route = useRoute()
