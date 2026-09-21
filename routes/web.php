@@ -4,6 +4,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Api\SubscribeController;
 use App\Http\Controllers\Api\CheckinController;
+use App\Http\Controllers\Api\UserProfileController;
 use App\Http\Controllers\Api\VapidController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +21,12 @@ Route::prefix('api')->group(function () {
     Route::post('/subscribe', [SubscribeController::class, 'store'])->name('api.subscribe');
     Route::post('/checkin', [CheckinController::class, 'store'])->name('api.checkin');
     Route::get('/checkin/today', [CheckinController::class, 'today'])->name('api.checkin.today');
+    Route::get('/checkin/history', [CheckinController::class, 'history'])->name('api.checkin.history');
+
+    // Profil user (dashboard)
+    Route::get('/user', [UserProfileController::class, 'show'])->name('api.user.show');
+    Route::post('/user/email', [UserProfileController::class, 'updateEmail'])->name('api.user.email');
+    Route::patch('/user/slots', [UserProfileController::class, 'updateSlots'])->name('api.user.slots');
 
     // Admin (gate di controller kalau perlu; SPA shell handle)
     Route::middleware('admin')->prefix('admin')->group(function () {

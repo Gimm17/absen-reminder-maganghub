@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'api/subscribe',
             'api/checkin',
+            'api/user/*',
         ]);
 
         // Register route middleware aliases.
