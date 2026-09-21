@@ -63,10 +63,10 @@
             <h3 class="text-sm lg:text-base font-bold text-slate-900 tracking-editorial">Detail Per Peserta</h3>
           </div>
 
-          <a href="/api/admin/export.csv" class="btn-ghost h-9 px-3.5 text-[12px] flex items-center gap-1.5">
+          <button type="button" class="btn-ghost h-9 px-3.5 text-[12px] flex items-center gap-1.5" @click="exportCsv">
             <span class="material-symbols-outlined text-[16px]">download</span>
             Export CSV
-          </a>
+          </button>
         </div>
 
         <div v-if="summary.per_user.length" class="overflow-x-auto -mx-4 lg:mx-0 px-4 lg:px-0">
@@ -105,10 +105,17 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
+import { useToast } from '../composables/useToast'
 
+const toast = useToast()
 const summary = ref(null)
 const loading = ref(true)
 const error = ref('')
+
+function exportCsv() {
+    toast.info('Menyiapkan file CSV…')
+    window.location.href = '/api/admin/export.csv'
+}
 
 function barClass(rate) {
     if (rate < 50) return 'bg-rose-500'
@@ -126,12 +133,13 @@ async function load() {
     loading.value = true
     error.value = ''
     try {
-        const r = await fetch('/api/admin/summary')
+        const r = await fetch('/api/admin/summary', { headers: { Accept: 'application/json' } })
         const j = await r.json()
         if (! r.ok) throw new Error(j.error || j.message || 'Gagal memuat data.')
         summary.value = j
     } catch (e) {
         error.value = e.message
+        toast.error(e.message)
     } finally {
         loading.value = false
     }

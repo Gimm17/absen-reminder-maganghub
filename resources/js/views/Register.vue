@@ -213,8 +213,10 @@ import { computed, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { usePushSubscription } from '../composables/usePushSubscription'
+import { useToast } from '../composables/useToast'
 
 const store = useUserStore()
+const toast = useToast()
 const loading = ref(false)
 const error = ref('')
 const form = reactive({ name: '', email: '' })
@@ -256,8 +258,11 @@ async function register() {
         store.name = form.name
         store.email = form.email
         await store.loadProfile()
+        await store.refreshToday()
+        toast.success('Pengingat aktif! Notifikasi akan dikirim 3× sehari.')
     } catch (e) {
         error.value = e.message || String(e)
+        toast.error(error.value)
     } finally {
         loading.value = false
     }
@@ -268,5 +273,7 @@ function reset() {
     store.checkedInToday = false
     form.name = ''
     form.email = ''
+    error.value = ''
+    toast.info('Form dikosongkan. Silakan daftar dengan email lain.')
 }
 </script>

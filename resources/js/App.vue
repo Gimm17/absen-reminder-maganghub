@@ -17,7 +17,7 @@
           </div>
         </div>
 
-        <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-2 shrink-0 relative">
           <span class="pill px-2.5 py-1 text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200/60">
             <span class="material-symbols-outlined ms-filled text-[13px]">bolt</span>
             {{ store.activeSlotCount }}× Aktif
@@ -26,9 +26,35 @@
             type="button"
             aria-label="Profil"
             class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 active:scale-95 transition-transform"
+            @click="profileOpen = !profileOpen"
           >
             <span class="material-symbols-outlined text-[18px]">person</span>
           </button>
+
+          <!-- Dropdown profil -->
+          <div v-if="profileOpen" data-profile-menu class="absolute top-11 right-0 w-56 card p-3 shadow-lg z-50">
+            <div class="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+              <div class="w-9 h-9 rounded-full bg-brand-700 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                {{ (store.name || '?').charAt(0).toUpperCase() }}
+              </div>
+              <div class="min-w-0">
+                <p class="text-[13px] font-bold text-slate-900 truncate">{{ store.name || 'Belum terdaftar' }}</p>
+                <p class="text-[11px] text-slate-500 truncate">{{ store.email || '—' }}</p>
+              </div>
+            </div>
+            <RouterLink to="/dashboard" class="flex items-center gap-2 py-2 text-[13px] text-slate-700 hover:text-brand-700 transition-colors" @click="profileOpen = false">
+              <span class="material-symbols-outlined text-[17px]">today</span>
+              Presensi
+            </RouterLink>
+            <RouterLink to="/admin" class="flex items-center gap-2 py-2 text-[13px] text-slate-700 hover:text-brand-700 transition-colors" @click="profileOpen = false">
+              <span class="material-symbols-outlined text-[17px]">admin_panel_settings</span>
+              Panel Admin
+            </RouterLink>
+            <RouterLink to="/register" class="flex items-center gap-2 py-2 text-[13px] text-slate-700 hover:text-brand-700 transition-colors" @click="profileOpen = false">
+              <span class="material-symbols-outlined text-[17px]">person_add</span>
+              Daftar / Ganti Akun
+            </RouterLink>
+          </div>
         </div>
       </div>
     </header>
@@ -82,6 +108,7 @@
             type="button"
             aria-label="Profil"
             class="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors"
+            @click="goProfile"
           >
             <span class="material-symbols-outlined text-[19px]">person</span>
           </button>
@@ -129,16 +156,22 @@
         </div>
       </div>
     </footer>
+
+    <!-- Toast global — umpan balik semua aksi -->
+    <Toaster />
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useUserStore } from './stores/user'
+import Toaster from './components/Toaster.vue'
 
 const store = useUserStore()
 const route = useRoute()
+const router = useRouter()
+const profileOpen = ref(false)
 
 const dashboardUrl = 'https://monev.maganghub.kemnaker.go.id/dashboard/riwayat'
 const year = 2026
@@ -171,6 +204,17 @@ function updateClock() {
     clock.value = wita.toTimeString().slice(0, 8)
 }
 
+function goProfile() {
+    router.push(store.userId ? '/admin' : '/register')
+}
+
+/** Tutup dropdown profil saat klik di luar. */
+function onDocClick(e) {
+    if (profileOpen.value && ! e.target.closest('[data-profile-menu]')) {
+        profileOpen.value = false
+    }
+}
+
 let clockTimer = null
 
 onMounted(async () => {
@@ -192,9 +236,12 @@ onMounted(async () => {
         updateClock()
         store.tick()
     }, 30000)
+
+    document.addEventListener('click', onDocClick)
 })
 
 onUnmounted(() => {
     if (clockTimer) clearInterval(clockTimer)
+    document.removeEventListener('click', onDocClick)
 })
 </script>

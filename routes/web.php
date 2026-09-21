@@ -20,6 +20,7 @@ Route::prefix('api')->group(function () {
     Route::get('/vapid-public-key', [VapidController::class, 'show'])->name('api.vapid');
     Route::post('/subscribe', [SubscribeController::class, 'store'])->name('api.subscribe');
     Route::post('/checkin', [CheckinController::class, 'store'])->name('api.checkin');
+    Route::delete('/checkin', [CheckinController::class, 'destroy'])->name('api.checkin.destroy');
     Route::get('/checkin/today', [CheckinController::class, 'today'])->name('api.checkin.today');
     Route::get('/checkin/history', [CheckinController::class, 'history'])->name('api.checkin.history');
 

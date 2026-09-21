@@ -168,13 +168,15 @@
               <span class="material-symbols-outlined text-[16px]">open_in_new</span>
             </a>
             <div class="flex items-center justify-between px-1 text-xs">
-              <button type="button" class="text-slate-600 hover:text-brand-700 font-medium flex items-center gap-1 py-1 transition-colors" @click="emailModalOpen = true">
+              <button type="button" class="text-slate-600 hover:text-brand-700 font-medium flex items-center gap-1 py-1 transition-colors" @click="openEmailModal">
                 <span class="material-symbols-outlined text-[16px]">alternate_email</span>
                 Daftarkan email lain
               </button>
-              <button type="button" class="text-brand-700 hover:text-brand-800 font-semibold flex items-center gap-1 py-1 transition-colors" :disabled="sendingTest" @click="markCheckedIn">
-                <span class="material-symbols-outlined text-[15px]">{{ testSent ? 'check' : 'send' }}</span>
-                {{ testSent ? 'Tercatat' : (sendingTest ? 'Mengirim…' : 'Tandai Sudah Absen') }}
+              <button type="button" class="font-semibold flex items-center gap-1 py-1 transition-colors disabled:opacity-60" :class="store.checkedInToday ? 'text-slate-500 hover:text-rose-600' : 'text-brand-700 hover:text-brand-800'" :disabled="sendingTest" @click="toggleCheckin">
+                <span class="material-symbols-outlined text-[15px]">
+                  {{ sendingTest ? 'hourglass_top' : (store.checkedInToday ? 'undo' : 'send') }}
+                </span>
+                {{ sendingTest ? 'Menyimpan…' : (store.checkedInToday ? 'Batalkan absen' : 'Tandai Sudah Absen') }}
               </button>
             </div>
           </div>
@@ -205,13 +207,19 @@
           </a>
 
           <div class="grid grid-cols-2 gap-2.5">
-            <button type="button" class="btn-ghost h-11 text-[13px] flex items-center justify-center gap-1.5" :disabled="sendingTest" @click="markCheckedIn">
-              <span class="material-symbols-outlined text-[17px]" :class="testSent ? 'text-emerald-600' : 'text-brand-600'">
-                {{ testSent ? 'check_circle' : 'notifications' }}
+            <button
+              type="button"
+              class="btn-ghost h-11 text-[13px] flex items-center justify-center gap-1.5"
+              :class="store.checkedInToday ? 'text-slate-600' : ''"
+              :disabled="sendingTest"
+              @click="toggleCheckin"
+            >
+              <span class="material-symbols-outlined text-[17px]" :class="store.checkedInToday ? 'text-slate-500' : 'text-brand-600'">
+                {{ sendingTest ? 'hourglass_top' : (store.checkedInToday ? 'undo' : 'notifications') }}
               </span>
-              {{ testSent ? 'Sudah Tercatat' : (sendingTest ? 'Menyimpan…' : 'Tandai Sudah Absen') }}
+              {{ sendingTest ? 'Menyimpan…' : (store.checkedInToday ? 'Batalkan Absen' : 'Tandai Sudah Absen') }}
             </button>
-            <button type="button" class="btn-ghost h-11 text-[13px] flex items-center justify-center gap-1.5" @click="emailModalOpen = true">
+            <button type="button" class="btn-ghost h-11 text-[13px] flex items-center justify-center gap-1.5" @click="openEmailModal">
               <span class="material-symbols-outlined text-[17px] text-slate-500">mail</span>
               Daftarkan / Ganti Email
             </button>
@@ -238,8 +246,8 @@
               <span class="material-symbols-outlined text-[15px]">devices</span>
               Target Sinkronisasi: Android, iOS, &amp; Chrome Desktop
             </span>
-            <button type="button" class="text-brand-700 hover:text-brand-800 font-semibold flex items-center gap-1 transition-colors" @click="emailModalOpen = true">
-              Konfigurasi Jam
+            <button type="button" class="text-brand-700 hover:text-brand-800 font-semibold flex items-center gap-1 transition-colors" @click="openEmailModal">
+              Atur Email Penerima
               <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
             </button>
           </div>
@@ -366,11 +374,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useUserStore } from '../stores/user'
+import { useToast } from '../composables/useToast'
 import Timeline from '../components/Timeline.vue'
 
 const store = useUserStore()
+const toast = useToast()
 
 const dashboardUrl = 'https://monev.maganghub.kemnaker.go.id/dashboard/riwayat'
 
@@ -382,7 +392,6 @@ const steps = [
 
 const refreshing = ref(false)
 const sendingTest = ref(false)
-const testSent = ref(false)
 
 const emailModalOpen = ref(false)
 const emailInput = ref('')
@@ -421,28 +430,71 @@ function dayClass(d) {
 
 async function refresh() {
     refreshing.value = true
-    await store.refreshToday()
-    setTimeout(() => { refreshing.value = false }, 400)
+    try {
+        await store.refreshToday()
+        if (! store.userId) {
+            toast.info('Belum ada akun terdaftar di perangkat ini.')
+        } else {
+            toast.success('Status diperbarui.')
+        }
+    } catch (e) {
+        toast.error('Gagal memperbarui status.')
+    } finally {
+        refreshing.value = false
+    }
 }
 
-async function markCheckedIn() {
-    if (! store.userId || store.checkedInToday) return
+/**
+ * Toggle absen hari ini.
+ * - Belum absen  -> catat (POST)
+ * - Sudah absen  -> batalkan (DELETE), supaya salah klik bisa dibatalkan
+ * Selalu ada umpan balik: toast sukses, toast error, atau toast info.
+ */
+async function toggleCheckin() {
+    if (! store.userId) {
+        toast.error('Daftarkan diri dulu sebelum menandai absen.')
+        return
+    }
+
     sendingTest.value = true
+    const wasCheckedIn = store.checkedInToday
+
     try {
         const r = await fetch('/api/checkin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: store.userId, source: 'button' }),
+            method: wasCheckedIn ? 'DELETE' : 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+                user_id: store.userId,
+                source: 'button',
+            }),
         })
-        if (! r.ok) throw new Error('Gagal mencatat absen')
-        testSent.value = true
+
+        const j = await r.json().catch(() => ({}))
+
+        if (! r.ok) {
+            const msg = j.message || (j.errors && Object.values(j.errors)[0]?.[0]) || 'Gagal menyimpan.'
+            throw new Error(msg)
+        }
+
+        if (wasCheckedIn) {
+            toast.info(j.deleted ? 'Catatan absen hari ini dibatalkan.' : 'Belum ada catatan absen hari ini.')
+        } else {
+            toast.success(j.message || 'Absen hari ini tercatat.')
+        }
+
         await store.refreshToday()
-        setTimeout(() => { testSent.value = false }, 2500)
     } catch (e) {
-        console.error(e)
+        toast.error(e.message || 'Gagal menghubungi server. Coba lagi.')
     } finally {
         sendingTest.value = false
     }
+}
+
+function openEmailModal() {
+    emailInput.value = store.email || ''
+    emailError.value = ''
+    emailSaved.value = false
+    emailModalOpen.value = true
 }
 
 function closeEmailModal() {
@@ -455,8 +507,18 @@ async function saveEmail() {
     emailError.value = ''
     emailSaved.value = false
 
+    if (! store.userId) {
+        emailError.value = 'Daftarkan diri dulu sebelum mengganti email.'
+        return
+    }
+
     if (! emailInput.value || ! /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailInput.value)) {
         emailError.value = 'Masukkan alamat email yang valid.'
+        return
+    }
+
+    if (emailInput.value === store.email) {
+        emailError.value = 'Email ini sudah terdaftar.'
         return
     }
 
@@ -464,9 +526,11 @@ async function saveEmail() {
     try {
         await store.updateEmail(emailInput.value)
         emailSaved.value = true
-        setTimeout(closeEmailModal, 900)
+        toast.success('Email notifikasi diperbarui.')
+        setTimeout(closeEmailModal, 700)
     } catch (e) {
         emailError.value = e.message
+        toast.error(e.message)
     } finally {
         emailSaving.value = false
     }
@@ -478,12 +542,17 @@ function updateClock() {
     clock.value = wita.toTimeString().slice(0, 8)
 }
 
+// Email di store diisi async (loadProfile) — jaga input tetap sinkron.
+watch(() => store.email, (v) => {
+    if (! emailModalOpen.value) emailInput.value = v || ''
+})
+
 let timer = null
 
 onMounted(async () => {
-    emailInput.value = store.email
     updateClock()
     await store.refreshToday()
+    emailInput.value = store.email || ''
     timer = setInterval(updateClock, 30000)
 })
 

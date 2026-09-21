@@ -53,6 +53,36 @@ class CheckinController extends Controller
     }
 
     /**
+     * DELETE /api/checkin — batalkan self-report hari ini (salah klik).
+     * Body: { user_id }
+     *
+     * Hanya menghapus catatan self-report. Kalau tidak ada catatan, tetap 200
+     * supaya toggle di UI idempotent.
+     */
+    public function destroy(Request $request): JsonResponse
+    {
+        $data = Validator::make($request->all(), [
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+        ])->validate();
+
+        $user = User::findOrFail($data['user_id']);
+        $tz = $user->timezone ?: config('app.reminder_timezone');
+        $today = Carbon::now($tz)->toDateString();
+
+        $deleted = Checkin::where('user_id', $user->id)
+            ->where('date', $today)
+            ->delete();
+
+        return response()->json([
+            'ok'      => true,
+            'deleted' => $deleted > 0,
+            'message' => $deleted > 0
+                ? 'Catatan absen hari ini dibatalkan.'
+                : 'Belum ada catatan absen hari ini.',
+        ]);
+    }
+
+    /**
      * GET /api/checkin/today?user_id=X — cek status hari ini.
      */
     public function today(Request $request): JsonResponse
