@@ -1,7 +1,7 @@
 {
     "name": "Reminder Absen MagangHub",
     "short_name": "AbsenHub",
-    "description": "Pengingat absen harian MagangHub Kemnaker. 3x sehari: 04.30, 08.30, 11.00 WITA.",
+    "description": "Pengingat absen harian MagangHub Kemnaker. 3x sehari: 16.30, 20.30, 23.00 WITA.",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#0f172a",

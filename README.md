@@ -2,7 +2,7 @@
 
 PWA Web Push untuk pengingat absen harian program MagangHub Kemnaker.
 
-**Kirim 3x sehari** — pukul **04.30, 08.30, 11.00 WITA** — notifikasi ke device user dengan tombol cepat: *Buka Dashboard Absen* + *Sudah Absen*.
+**Kirim 3x sehari** — pukul **16.30, 20.30, 23.00 WITA** (menjelang batas absen tengah malam) — notifikasi ke device user dengan tombol cepat: *Buka Dashboard Absen* + *Sudah Absen*.
 
 ## Stack
 
@@ -48,7 +48,7 @@ Buka `http://localhost:8000` → daftar → aktifkan notifikasi.
 * * * * * cd /home/USER/public_html && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-Scheduler trigger `reminders:send slot-1` di 04:30, dst.
+Scheduler trigger `reminders:send slot-1` di 16:30, `slot-2` 20:30, `slot-3` 23:00 (WITA).
 
 ### Test push manual
 

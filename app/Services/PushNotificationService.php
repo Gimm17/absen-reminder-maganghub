@@ -123,19 +123,19 @@ class PushNotificationService
     {
         $dashboardUrl = config('app.maganghub_dashboard_url');
         $loginUrl = config('app.maganghub_login_url');
-        $deadline = '12:00 malam WITA';
+        $deadline = 'tengah malam (00.00 WITA)';
 
         $messages = [
             'slot-1' => [
-                'title' => '⏰ Absen MagangHub — 04:30',
-                'body' => "Belum absen hari ini? Batas jam {$deadline}. Tap untuk buka dashboard.",
+                'title' => '⏰ Absen MagangHub — 16:30',
+                'body' => "Sore! Jangan lupa absen hari ini. Batas jam {$deadline}.",
             ],
             'slot-2' => [
-                'title' => '⏰ Absen MagangHub — 08:30',
-                'body' => "Pagi! Jangan lupa absen sebelum jam {$deadline}.",
+                'title' => '⏰ Absen MagangHub — 20:30',
+                'body' => "Malam! Kamu belum absen hari ini. Batas jam {$deadline}.",
             ],
             'slot-3' => [
-                'title' => '⏰ Absen MagangHub — 11:00',
+                'title' => '⏰ Absen MagangHub — 23:00',
                 'body' => "Peringatan terakhir! Absen tutup jam {$deadline}.",
             ],
         ];

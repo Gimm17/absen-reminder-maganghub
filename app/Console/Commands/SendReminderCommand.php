@@ -58,18 +58,20 @@ class SendReminderCommand extends Command
         $expiredTotal = 0;
         $failedTotal = 0;
 
+        $skippedTotal = 0;
+
         foreach ($users as $user) {
+            // Skip SEBELUM kirim — user yg sudah lapor absen hari ini tidak perlu diingatkan lagi.
+            if ($user->hasCheckedInToday()) {
+                $skippedTotal++;
+                continue;
+            }
+
             try {
                 $result = $push->sendToUser($user, $payload);
                 $successTotal += $result['success'];
                 $expiredTotal += $result['expired'];
                 $failedTotal  += $result['failed'];
-
-                if ($user->hasCheckedInToday()) {
-                    // User sudah absen — skip supaya hemat (push cuma untuk yg belum).
-                    // Tapi kalau mau tetap kirim sebagai pengingat sore, hapus blok ini.
-                    continue;
-                }
             } catch (\Throwable $e) {
                 $failedTotal++;
                 Log::error('reminder push failed', [
@@ -86,6 +88,7 @@ class SendReminderCommand extends Command
             'success'   => $successTotal,
             'expired'   => $expiredTotal,
             'failed'    => $failedTotal,
+            'skipped'   => $skippedTotal,
         ], now()->addDays(2));
         Cache::put($cacheKey, true, now()->addDay());
 

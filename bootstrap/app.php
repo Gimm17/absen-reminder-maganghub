@@ -31,19 +31,19 @@ return Application::configure(basePath: dirname(__DIR__))
         $timezone = config('app.reminder_timezone', 'Asia/Makassar');
 
         $schedule->command('reminders:send slot-1')
-            ->dailyAt(config('app.reminder_slot_1', '04:30'))
+            ->dailyAt(config('app.reminder_slot_1', '16:30'))
             ->timezone($timezone)
             ->withoutOverlapping()
             ->onOneServer();
 
         $schedule->command('reminders:send slot-2')
-            ->dailyAt(config('app.reminder_slot_2', '08:30'))
+            ->dailyAt(config('app.reminder_slot_2', '20:30'))
             ->timezone($timezone)
             ->withoutOverlapping()
             ->onOneServer();
 
         $schedule->command('reminders:send slot-3')
-            ->dailyAt(config('app.reminder_slot_3', '11:00'))
+            ->dailyAt(config('app.reminder_slot_3', '23:00'))
             ->timezone($timezone)
             ->withoutOverlapping()
             ->onOneServer();

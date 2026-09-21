@@ -36,9 +36,9 @@
             Halo, <strong>{{ store.name }}</strong>. Reminder sudah aktif untuk:
           </p>
           <ul class="text-sm space-y-1 ml-4 list-disc text-slate-600">
-            <li>04.30 WITA —提醒 pagi</li>
-            <li>08.30 WITA —提醒 siang</li>
-            <li>11.00 WITA —提醒 terakhir</li>
+            <li>16.30 WITA — pengingat sore</li>
+            <li>20.30 WITA — pengingat malam</li>
+            <li>23.00 WITA — peringatan terakhir</li>
           </ul>
           <router-link to="/dashboard" class="block text-center w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2.5 rounded-lg">
             Lihat Dashboard

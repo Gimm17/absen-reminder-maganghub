@@ -8,7 +8,7 @@
         ✅ Sudah absen pukul <strong>{{ formatTime(store.checkinTime) }}</strong>.
       </div>
       <div v-else class="mt-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3">
-        ⚠️ Belum absen hari ini. Batas: <strong>23:59 WITA</strong>.
+        ⚠️ Belum absen hari ini. Batas: <strong>tengah malam (00.00 WITA)</strong>.
       </div>
 
       <div class="mt-4 grid grid-cols-2 gap-2">
@@ -27,9 +27,9 @@
       <h3 class="font-semibold">Pengingat</h3>
       <p class="text-xs text-slate-500">Reminder akan dikirim pada jam-jam berikut (WITA):</p>
       <ul class="text-sm space-y-1 ml-4 list-disc text-slate-700">
-        <li>04.30 —提醒 pertama (pagi)</li>
-        <li>08.30 —提醒 kedua (siang)</li>
-        <li>11.00 —提醒 terakhir (sore)</li>
+        <li>16.30 WITA — pengingat sore</li>
+        <li>20.30 WITA — pengingat malam</li>
+        <li>23.00 WITA — peringatan terakhir</li>
       </ul>
       <p class="text-xs text-slate-500 pt-2 border-t border-slate-100">
         Kalau tidak terima notifikasi, cek:
